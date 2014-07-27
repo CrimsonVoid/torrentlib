@@ -1,8 +1,7 @@
-#![crate_id   = "torrent#0.1"]
+#![crate_name = "torrent"]
 #![crate_type = "lib"]
 
 #![feature(macro_rules)]
 
-pub use ast::build_tree;
+pub mod ast;
 
-mod ast;
