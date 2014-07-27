@@ -1,0 +1,11 @@
+[package]
+name = "torrent"
+version = "0.1.0"
+authors = ["CrimsonVoid"]
+
+[[lib]]
+name = "torrent"
+path = "src/lib.rs"
+
+[[test]]
+name = "tests"
