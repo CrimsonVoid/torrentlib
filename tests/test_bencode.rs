@@ -1,7 +1,7 @@
 use std::io::{BufferedReader, MemReader};
 
-use torrent::ast::{NString, NInt, NList, NDict};
-use torrent::ast::Node;
+use torrent::bencode::Benc;
+use torrent::bencode::{BString, BInt, BList, BDict};
 
 macro_rules! hashmap(
     ($($k:expr => $v:expr),*) => ({
@@ -27,18 +27,18 @@ fn build_tree() {
         "xample.com/mock2e4:infod6:lengthi562949953421312e4:name9:mock.da",
         "ta12:piece lengthi536870912eee");
     
-    let expect = vec!(NDict(hashmap!(
-        string!("announce")      => NString(string!("http://tracker.example.com:8080/announce")),
-        string!("comment")       => NString(string!("\"Hello mock data\"")),
-        string!("creation date") => NInt(1234567890),
-        string!("httpseeds")     => NList(vec!(
-            NString(string!("http://direct.example.com/mock1")),
-            NString(string!("http://direct.example.com/mock2")),
+    let expect = vec!(BDict(hashmap!(
+        string!("announce")      => BString(string!("http://tracker.example.com:8080/announce")),
+        string!("comment")       => BString(string!("\"Hello mock data\"")),
+        string!("creation date") => BInt(1234567890),
+        string!("httpseeds")     => BList(vec!(
+            BString(string!("http://direct.example.com/mock1")),
+            BString(string!("http://direct.example.com/mock2")),
         )),
-        string!("info") => NDict(hashmap!(
-            string!("length")       => NInt(562949953421312),
-            string!("name")         => NString(string!("mock.data")),
-            string!("piece length") => NInt(536870912),
+        string!("info") => BDict(hashmap!(
+            string!("length")       => BInt(562949953421312),
+            string!("name")         => BString(string!("mock.data")),
+            string!("piece length") => BInt(536870912),
         )),
     )));
 
@@ -46,8 +46,8 @@ fn build_tree() {
         MemReader::new(String::from_str(data).into_bytes()));
 
     let expect = Ok(expect);
-    let result = Node::build_tree(&mut brd);
+    let result = Benc::build_tree(&mut brd);
 
-    println!("{}", result);
     assert!(result == expect, "{} == {}", result, expect);
 }
+

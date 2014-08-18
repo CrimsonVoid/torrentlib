@@ -2,4 +2,5 @@
 
 extern crate torrent;
 
-mod test_ast;
+mod test_bencode;
+
