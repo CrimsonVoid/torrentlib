@@ -1,3 +1,5 @@
+//! TODO - Library documentation
+
 #![crate_name = "torrent"]
 #![crate_type = "lib"]
 

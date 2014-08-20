@@ -1,4 +1,4 @@
-use std::io::{BufferedReader, MemReader};
+use std::io::MemReader;
 
 use torrent::bencode::Benc;
 use torrent::bencode::{BString, BInt, BList, BDict};
@@ -24,8 +24,8 @@ fn build_tree() {
     let data = concat!("d8:announce40:http://tracker.example.com:8080/ann",
         "ounce7:comment17:\"Hello mock data\"13:creation datei1234567890e",
         "9:httpseedsl31:http://direct.example.com/mock131:http://direct.e",
-        "xample.com/mock2e4:infod6:lengthi562949953421312e4:name9:mock.da",
-        "ta12:piece lengthi536870912eee");
+        "xample.com/mock2e4:infod6:lengthi562949953421312e4:name15:あいえ",
+        "おう12:piece lengthi536870912eee");
     
     let expect = vec!(BDict(hashmap!(
         string!("announce")      => BString(string!("http://tracker.example.com:8080/announce")),
@@ -37,16 +37,15 @@ fn build_tree() {
         )),
         string!("info") => BDict(hashmap!(
             string!("length")       => BInt(562949953421312),
-            string!("name")         => BString(string!("mock.data")),
+            string!("name")         => BString(string!("あいえおう")),
             string!("piece length") => BInt(536870912),
         )),
     )));
 
-    let mut brd = BufferedReader::new(
-        MemReader::new(String::from_str(data).into_bytes()));
+    let mut brd = MemReader::new(data.to_string().into_bytes());
 
     let expect = Ok(expect);
-    let result = Benc::build_tree(&mut brd);
+    let result = Benc::build_tree(&mut brd.bytes());
 
     assert!(result == expect, "{} == {}", result, expect);
 }
