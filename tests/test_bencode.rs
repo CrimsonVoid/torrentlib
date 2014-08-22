@@ -19,6 +19,12 @@ macro_rules! string(
     );
 )
 
+macro_rules! bytes(
+    ($s:expr) => (
+        $s.into_string().into_bytes()
+    );
+)
+
 #[test]
 fn build_tree() {
     let data = concat!("d8:announce40:http://tracker.example.com:8080/ann",
@@ -28,17 +34,17 @@ fn build_tree() {
         "おう12:piece lengthi536870912eee");
     
     let expect = vec!(BDict(hashmap!(
-        string!("announce")      => BString(string!("http://tracker.example.com:8080/announce")),
-        string!("comment")       => BString(string!("\"Hello mock data\"")),
-        string!("creation date") => BInt(1234567890),
-        string!("httpseeds")     => BList(vec!(
-            BString(string!("http://direct.example.com/mock1")),
-            BString(string!("http://direct.example.com/mock2")),
+        bytes!("announce")      => BString(bytes!("http://tracker.example.com:8080/announce")),
+        bytes!("comment")       => BString(bytes!("\"Hello mock data\"")),
+        bytes!("creation date") => BInt(1234567890),
+        bytes!("httpseeds")     => BList(vec!(
+            BString(bytes!("http://direct.example.com/mock1")),
+            BString(bytes!("http://direct.example.com/mock2")),
         )),
-        string!("info") => BDict(hashmap!(
-            string!("length")       => BInt(562949953421312),
-            string!("name")         => BString(string!("あいえおう")),
-            string!("piece length") => BInt(536870912),
+        bytes!("info") => BDict(hashmap!(
+            bytes!("length")       => BInt(562949953421312),
+            bytes!("name")         => BString(bytes!("あいえおう")),
+            bytes!("piece length") => BInt(536870912),
         )),
     )));
 

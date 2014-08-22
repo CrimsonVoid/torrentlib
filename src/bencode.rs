@@ -38,10 +38,10 @@ impl NodeType {
 /// The types that can be represented as a bencoded values
 #[deriving(Show, PartialEq)]
 pub enum Benc {
-    BString (String),
+    BString (Vec<u8>),
     BInt    (i64),
     BList   (Vec<Benc>),
-    BDict   (HashMap<String, Benc>),
+    BDict   (HashMap<Vec<u8>, Benc>),
 }
 
 impl Benc {
@@ -53,9 +53,12 @@ impl Benc {
     
         loop {
             let c = match bytes.next() {
-                Some(Ok(c))  => c,
-                Some(Err(e)) => return Err(e.desc),
-                None         => return Ok(ast),
+                // TODO - Handle '\n'?
+                Some(Ok(b'\n')) => continue,
+                Some(Ok(b'\0')) => return Ok(ast),
+                Some(Ok(c))     => c,
+                Some(Err(e))    => return Err(e.desc),
+                None            => return Ok(ast),
             };
     
             ast.push(match NodeType::type_of(c) {
@@ -70,7 +73,7 @@ impl Benc {
 
     /// Consumes as much of the Buffer as needed to read a valid bencoded string. `c` is the first
     /// bencoded char of the string, which can by '\0'
-    fn benc_string<R: Reader>(bytes: &mut Bytes<R>, c: u8) -> Result<String, &'static str> {
+    fn benc_string<R: Reader>(bytes: &mut Bytes<R>, c: u8) -> Result<Vec<u8>, &'static str> {
         // Valid - 5:hello
         let mut buf  = Vec::with_capacity(3);
         let mut last = b'\0';
@@ -92,7 +95,6 @@ impl Benc {
             }
         }
 
-    
         // Make sure we didn't exhuast `chars`
         if last != b':' || buf.len() == 0 {
             return err;
@@ -118,10 +120,7 @@ impl Benc {
         }
 
         match len {
-            0 => match String::from_utf8(buf) {
-                Ok(s)  => Ok(s),
-                Err(_) => err,
-            },
+            0 => Ok(buf),
             _ => err,
         }
     }
@@ -190,11 +189,12 @@ impl Benc {
         }
     }
 
-    /// Consumes as much of the Buffer as needed to read a valid bencoded dictionary
-    fn benc_dict<R: Reader>(bytes: &mut Bytes<R>) -> Result<HashMap<String, Benc>, &'static str> {
+    /// Consumes as much of the Buffer as needed to read a valid bencoded dictionary. Dictionary
+    /// keys are `BString`s
+    fn benc_dict<R: Reader>(bytes: &mut Bytes<R>) -> Result<HashMap<Vec<u8>, Benc>, &'static str> {
         // Valid - d(<NString><Node>)+e
         let mut dict = HashMap::new();
-        let mut key  = String::new();  // Previous key; ensure keys are in alphabetical order
+        let mut key  = Vec::new();  // Previous key; ensure keys are in alphabetical order
         let err      = Err("Invalid dict bencoding");
         
         loop {
@@ -208,9 +208,7 @@ impl Benc {
             };
     
             key = match Benc::benc_string(bytes, c) {
-                Ok(k) => 
-                    if key < k { k }
-                    else       { return err },
+                Ok(k)  => if key < k { k } else { return err },
                 Err(e) => return Err(e),
             };
             let k = key.clone();
@@ -245,7 +243,11 @@ trait IntoBenc {
 }
 
 impl IntoBenc for String {
-    fn into_benc(self) -> Benc { BString(self) }
+    fn into_benc(self) -> Benc { BString(self.into_bytes()) }
+}
+
+impl IntoBenc for Vec<u8> {
+    fn into_benc(self) -> Benc{ BString(self) }
 }
 
 impl IntoBenc for i64 {
@@ -256,7 +258,7 @@ impl IntoBenc for Vec<Benc> {
     fn into_benc(self) -> Benc { BList(self) }
 }
 
-impl IntoBenc for HashMap<String, Benc> {
+impl IntoBenc for HashMap<Vec<u8>, Benc> {
     fn into_benc(self) -> Benc { BDict(self) }
 }
 
@@ -284,11 +286,17 @@ mod tests {
             $s.into_string()
         );
     )
+    
+    macro_rules! bytes(
+        ($s:expr) => (
+            $s.into_string().into_bytes()
+        );
+    )
 
     #[test]
     fn benc_string() {
         let is_valid = |data: &str, first: u8| {
-            let bind = |brd: &mut Bytes<MemReader>| -> Result<String, &'static str> {
+            let bind = |brd: &mut Bytes<MemReader>| -> Result<Vec<u8>, &'static str> {
                 Benc::benc_string(brd, first)
             };
             let expect = data.splitn(1, ':')
@@ -297,11 +305,11 @@ mod tests {
                 .concat()
                 .into_string();
 
-            assert(bind, data, Ok(expect));
+            assert(bind, data, Ok(bytes!(expect)));
         };
         
         let is_invalid = |data: &str, first: u8| {
-            let bind = |brd: &mut Bytes<MemReader>| -> Result<String, &'static str> {
+            let bind = |brd: &mut Bytes<MemReader>| -> Result<Vec<u8>, &'static str> {
                 Benc::benc_string(brd, first)
             };
 
@@ -331,7 +339,7 @@ mod tests {
         is_valid(0);
 
         // Invalid
-        assert(Benc::benc_int, "e", Err("Mock data"));
+        assert(Benc::benc_int, "e",   Err("Mock data"));
         assert(Benc::benc_int, "-0e", Err("Mock data"));
         assert(Benc::benc_int, "00e", Err("Mock data"));
         assert(Benc::benc_int, "05e", Err("Mock data"));
@@ -342,7 +350,7 @@ mod tests {
         assert(Benc::benc_list,
             "5:helloi42ee",
             Ok(vec!(
-                BString(string!("hello")),
+                BString(bytes!("hello")),
                 BInt(42),
             ))
         );
@@ -351,20 +359,20 @@ mod tests {
             concat!("5:helloi42eli2ei3e2:hid4:listli1ei2ei3ee",
                     "7:yahallo2::)eed2:hi5:hello3:inti15eee"),
             Ok(vec!(
-                BString(string!("hello")),
+                BString(bytes!("hello")),
                 BInt(42),
                 BList(vec!(
                     BInt(2),
                     BInt(3),
-                    BString(string!("hi")),
+                    BString(bytes!("hi")),
                     BDict(hashmap!(
-                        string!("list")    => BList(vec!(BInt(1), BInt(2), BInt(3))),
-                        string!("yahallo") => BString(string!(":)")),
+                        bytes!("list")    => BList(vec!(BInt(1), BInt(2), BInt(3))),
+                        bytes!("yahallo") => BString(bytes!(":)")),
                     )),
                 )),
                 BDict(hashmap!(
-                    string!("hi")  => BString(string!("hello")),
-                    string!("int") => BInt(15),
+                    bytes!("hi")  => BString(bytes!("hello")),
+                    bytes!("int") => BInt(15),
                 )),
             ))
         );
@@ -377,7 +385,7 @@ mod tests {
         assert(Benc::benc_dict,
             "2:hi5:helloe",
             Ok(hashmap!(
-                string!("hi") => BString(string!("hello")),
+                bytes!("hi") => BString(bytes!("hello")),
             ))
         );
 
@@ -386,20 +394,20 @@ mod tests {
                     "7:integeri42e4:listli2ei3e2:hid4:listli1ei2ei3e",
                     "e7:yahallo2::)ee3:str5:helloe"),
             Ok(hashmap!(
-                string!("str")     => BString(string!("hello")),
-                string!("integer") => BInt(42i64),
-                string!("list")    => BList(vec!(
+                bytes!("str")     => BString(bytes!("hello")),
+                bytes!("integer") => BInt(42),
+                bytes!("list")    => BList(vec!(
                     BInt(2),
                     BInt(3),
-                    BString(string!("hi")),
+                    BString(bytes!("hi")),
                     BDict(hashmap!(
-                        string!("list")    => BList(vec!(BInt(1), BInt(2), BInt(3))),
-                        string!("yahallo") => BString(string!(":)")),
+                        bytes!("list")    => BList(vec!(BInt(1), BInt(2), BInt(3))),
+                        bytes!("yahallo") => BString(bytes!(":)")),
                     )),
                 )),
-                string!("dictionary") => BDict(hashmap!(
-                    string!("hi")  => BString(string!("hello")),
-                    string!("int") => BInt(15i64),
+                bytes!("dictionary") => BDict(hashmap!(
+                    bytes!("hi")  => BString(bytes!("hello")),
+                    bytes!("int") => BInt(15i64),
                 )),
             ))
         );
