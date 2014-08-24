@@ -55,4 +55,3 @@ fn build_tree() {
 
     assert!(result == expect, "{} == {}", result, expect);
 }
-

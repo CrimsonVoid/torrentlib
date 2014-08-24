@@ -6,3 +6,4 @@
 #![feature(macro_rules)]
 
 pub mod bencode;
+pub mod torrent;

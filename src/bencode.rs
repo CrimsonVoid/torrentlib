@@ -55,7 +55,6 @@ impl Benc {
             let c = match bytes.next() {
                 // TODO - Handle '\n'?
                 Some(Ok(b'\n')) => continue,
-                Some(Ok(b'\0')) => return Ok(ast),
                 Some(Ok(c))     => c,
                 Some(Err(e))    => return Err(e.desc),
                 None            => return Ok(ast),
