@@ -1,41 +1,23 @@
 //! TODO - module documentation
 
 extern crate time;
-extern crate serialize;
+
+use std::fmt::{Show, Formatter, FormatError};
+use std::io::{InvalidInput, IoError, IoResult, UserDir, fs};
+use std::io::extensions::Bytes;
+use std::io::fs::PathExtensions;
+use std::os;
 
 use self::time::Timespec;
-use self::serialize::hex::ToHex;
-use std::io::extensions::Bytes;
-use std::io::fs;
 
 use bencode;
 use bencode::{BString, BInt, BList, BDict};
 
-/// Single File
-#[deriving(Show, PartialEq)]
-pub struct File {
-    /// Filename
-    pub name: String,
-    /// Size of file in bytes
-    pub length: i64,
-    /// Optional md5sum of the file
-    pub md5sum: Option<String>,
-}
-
-/// Multi-file structure
-#[deriving(Show, PartialEq)]
-pub struct Directory {
-    /// Root directory where all `files` are under
-    pub name: String,
-    /// Vector of `File`'s; `File.name` is the full path under `Directory.name`
-    pub files: Vec<File>,
-}
 
 #[deriving(Show, PartialEq)]
-// TODO - Combine File and Directory?
 pub enum FileMode {
-    File      (File),
-    Directory (Directory),
+    File      (FileM),
+    Directory (DirectoryM),
 }
 
 /// Tracker(s) to announce to
@@ -68,55 +50,12 @@ pub struct Torrent {
     /// Bytes in each piece
     pub piece_length: i64,
     /// Vector of SHA1 hashes for each `piece_length`
-    pub pieces: Vec<String>,
+    pub pieces: Vec<Vec<u8>>,
     /// Single file or directory
     pub mode: FileMode,
 }
 
-macro_rules! unwrap(
-    ($key:expr, $val:ident, $err:expr) => (
-        match $key {
-            Some($val(n)) => n,
-            _             => return $err,
-        }
-    );
-
-    ($key:expr, $val:ident) => (
-        match $key {
-            Some($val(n)) => Some(n),
-            _             => None,
-        }
-    );
-)
-
-macro_rules! unwrap_bstring(
-    ($key:expr, $err:expr) => (
-        match $key {
-            Some(BString(v)) => match String::from_utf8(v) {
-                Ok(s)  => s,
-                Err(_) => return $err,
-            },
-            _ => return $err,
-        }
-    );
-
-    ($key:expr) => (
-        match $key {
-            Some(BString(v)) => String::from_utf8(v).ok(),
-            _                => None,
-        }
-    );
-)
-
-macro_rules! conv(
-    ($key:expr, $val:ident, $err:expr) => (
-        match $key {
-            $val(n) => n,
-            _       => return $err,
-        }
-    );
-)
-
+// TODO - Set directory absolute path before torrent is created
 impl Torrent {
     /// Consumes `bytes` to build a `Torrent` struct
     pub fn new<R: Reader>(brd: &mut Bytes<R>) -> Result<Torrent, &'static str> {
@@ -127,29 +66,9 @@ impl Torrent {
         };
         let mut info = unwrap!(benc.pop_equiv(&b"info"), BDict, err);
 
-        let mut t = Torrent {
-            announce:      Tracker(String::new()),
-
-            comment:       unwrap_bstring!(benc.pop_equiv(&b"comment")),
-            created_by:    unwrap_bstring!(benc.pop_equiv(&b"created by")),
-            encoding:      unwrap_bstring!(benc.pop_equiv(&b"encoding")),
-            creation_date: Some(time::at_utc(
-                    Timespec::new(unwrap!(benc.pop_equiv(&b"creation date"), BInt, err), 0)
-                )),
-            private:      match unwrap!(info.pop_equiv(&b"private"), BInt) {
-                              Some(1) => true,
-                              _       => false,
-                          },
-            piece_length: unwrap!(info.pop_equiv(&b"piece length"), BInt, err),
-            pieces:       Vec::new(),
-            mode:         Directory(Directory {
-                name:  String::new(),
-                files: Vec::new(),
-            }),
-        };
-
         // Prefer 'announce-list' over 'announce'
-        t.announce = if benc.contains_key_equiv(&b"announce-list") {
+        let announce = if benc.contains_key_equiv(&b"announce-list") {
+            // Vec<Vec<BString>> -> Vec<Vec<String>>
             let lists = unwrap!(benc.pop_equiv(&b"announce-list"), BList, err);
 
             if lists.len() == 0 {
@@ -158,11 +77,11 @@ impl Torrent {
             } else {
                 let mut alist = Vec::with_capacity(lists.len());
 
-                for list in lists.move_iter() {
+                for list in lists.into_iter() {
                     let list     = conv!(list, BList, err);
                     let mut flat = Vec::with_capacity(list.len());
 
-                    for l in list.move_iter() {
+                    for l in list.into_iter() {
                         match String::from_utf8(conv!(l, BString, err)) {
                             Ok(s)  => flat.push(s),
                             Err(_) => return err,
@@ -179,54 +98,56 @@ impl Torrent {
         };
 
         // Fill t.pieces with SHA1 hashes of each piece
-        t.pieces = {
+        let pieces = {
             let data      = unwrap!(info.pop_equiv(&b"pieces"), BString, err);
-            let data      = data.as_slice();
             let split_len = 20;
 
-            let splits = if data.len() % 20 != 0 {
-                return err;
-            } else {
+            let splits = if data.len() % 20 == 0 {
                 data.len() / split_len
+            } else {
+                return err;
             };
             let mut pieces = Vec::with_capacity(splits);
 
             for i in range(0, splits) {
-                pieces.push(data.slice(i*split_len, (i+1)*split_len).to_hex());
+                pieces.push(data[i*split_len..(i+1)*split_len].to_vec());
             }
 
             pieces
         };
 
-        t.mode = if info.contains_key_equiv(&b"files") {
+        let mode = if info.contains_key_equiv(&b"files") {
             // Multi file
             let files = unwrap!(info.pop_equiv(&b"files"), BList, err);
-            let mut d = Directory {
-                name:  unwrap_bstring!(info.pop_equiv(&b"name"), err),
+            let mut d = DirectoryM {
+                path:  conv!(
+                    // TODO - Absolute path
+                    Path::new_opt(unwrap_bstring!(info.pop_equiv(&b"name"), err)),
+                    Some,
+                    err
+                ),
                 files: Vec::with_capacity(files.len()),
             };
 
             // Populate `d.files`
-            for file in files.move_iter() {
+            for file in files.into_iter() {
                 let mut file = conv!(file, BDict, err);
-                let mut f = File {
+                let mut f = FileM {
                     name:   String::new(),
+                    path:   Path::new(""),
                     length: unwrap!(file.pop_equiv(&b"length"), BInt, err),
                     md5sum: unwrap_bstring!(file.pop_equiv(&b"md5sum")),
                 };
 
                 let file_paths = unwrap!(file.pop_equiv(&b"path"), BList, err);
-                for p in file_paths.move_iter() {
-                    match String::from_utf8(conv!(p, BString, err)) {
-                        Ok(s) => {
-                            f.name.push_str(s.as_slice());
-                            f.name.push_char('/');
-                        },
-                        Err(_) => return err,
-                    }
+                for p in file_paths.into_iter() {
+                    f.path.push(conv!(p, BString, err));
                 }
-                // Remove trailing '/'
-                f.name.pop_char();
+
+                f.name = match f.path.as_str() {
+                    Some(s) => String::from_str(s),
+                    None    => return err,
+                };
 
                 d.files.push(f);
             }
@@ -234,14 +155,29 @@ impl Torrent {
             Directory(d)
         } else {
             // Single file
-            File(File {
-                name:   unwrap_bstring!(info.pop_equiv(&b"name"), err),
+            let path = unwrap_bstring!(info.pop_equiv(&b"name"), err);
+
+            File(FileM {
+                name:   path.clone(),
+                path:   Path::new(path),
                 length: unwrap!(info.pop_equiv(&b"length"), BInt, err),
                 md5sum: unwrap_bstring!(info.pop_equiv(&b"md5sum")),
             })
         };
 
-        Ok(t)
+        Ok(Torrent {
+            announce:      announce,
+            comment:       unwrap_bstring!(benc.pop_equiv(&b"comment")),
+            created_by:    unwrap_bstring!(benc.pop_equiv(&b"created by")),
+            encoding:      unwrap_bstring!(benc.pop_equiv(&b"encoding")),
+            creation_date: Some(time::at_utc(
+                Timespec::new(unwrap!(benc.pop_equiv(&b"creation date"), BInt, err), 0)
+            )),
+            private:      unwrap!(info.pop_equiv(&b"private"), BInt) == Some(1),
+            piece_length: unwrap!(info.pop_equiv(&b"piece length"), BInt, err),
+            pieces:       pieces,
+            mode:         mode,
+        })
     }
 
     /// Read from a file and make a `Torrent`

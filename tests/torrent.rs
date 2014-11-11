@@ -27,6 +27,7 @@ fn new() {
         ),
         mode: File(File {
             name:   "hello.rs".to_string(),
+            path:   Path::new("hello.rs"),
             length: 44,
             md5sum: None,
         }),
