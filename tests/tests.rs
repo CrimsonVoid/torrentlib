@@ -1,6 +1,6 @@
 #![feature(macro_rules)]
 
-extern crate torrent;
+extern crate libbittorrent;
 
 mod bencode;
 // mod torrent;

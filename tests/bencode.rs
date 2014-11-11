@@ -1,8 +1,8 @@
 use std::io::MemReader;
 use std::io::extensions::Bytes;
 
-use torrent::bencode::Benc;
-use torrent::bencode::Benc as B;
+use libbittorrent::bencode::Benc;
+use libbittorrent::bencode::Benc as B;
 
 macro_rules! hashmap(
     ($($k:expr => $v:expr),*) => ({

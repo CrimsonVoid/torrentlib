@@ -1,6 +1,6 @@
 //! TODO - Library documentation
 
-#![crate_name = "torrent"]
+#![crate_name = "libbittorrent"]
 #![crate_type = "lib"]
 
 #![feature(macro_rules)]

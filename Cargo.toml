@@ -1,10 +1,10 @@
 [package]
-name = "torrent"
+name = "libbittorrent"
 version = "0.1.0"
 authors = ["CrimsonVoid"]
 
 [lib]
-name = "torrent"
+name = "libbittorrent"
 path = "src/lib.rs"
 
 [[test]]
