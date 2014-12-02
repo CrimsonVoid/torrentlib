@@ -95,20 +95,20 @@ impl<T> error::FromError<&'static str> for BencResult<T> {
 /// Indicates type of the Benc node
 #[deriving(PartialEq)]
 enum NodeType {
-    TString,
-    TInt,
-    TList,
-    TDict,
+    String,
+    Int,
+    List,
+    Dict,
 }
 
 impl NodeType {
     /// Returns the bencoded type of `c`
     fn type_of(c: u8) -> Option<NodeType> {
         match c {
-            b'0'...b'9' => Some(NodeType::TString),
-            b'i'        => Some(NodeType::TInt),
-            b'l'        => Some(NodeType::TList),
-            b'd'        => Some(NodeType::TDict),
+            b'0'...b'9' => Some(NodeType::String),
+            b'i'        => Some(NodeType::Int),
+            b'l'        => Some(NodeType::List),
+            b'd'        => Some(NodeType::Dict),
             _           => None,
         }
     }
@@ -117,10 +117,10 @@ impl NodeType {
 /// The types that can be represented as a bencoded values
 #[deriving(Show, PartialEq)]
 pub enum Benc {
-    BString(Vec<u8>),
-    BInt(i64),
-    BList(Vec<Benc>),
-    BDict(TreeMap<Vec<u8>, Benc>),
+    String(Vec<u8>),
+    Int(i64),
+    List(Vec<Benc>),
+    Dict(TreeMap<Vec<u8>, Benc>),
 }
 
 impl Benc {
@@ -256,7 +256,7 @@ impl Benc {
         loop {
             // Key
             prev_key = match Benc::node(bytes, Some(b'e')) {
-                Ok(Benc::BString(n))     => if n > prev_key { n } else { return err; },
+                Ok(Benc::String(n))      => if n > prev_key { n } else { return err; },
                 Ok(_)                    => return Err(BencError::OtherErr(
                                                 "Expected `BString` key for dictionary")),
                 Err(BencError::Delim(_)) => return Ok(dict),
@@ -295,10 +295,10 @@ impl Benc {
         };
 
         match NodeType::type_of(c) {
-            Some(NodeType::TString) => Ok(into_benc!(Benc::benc_string(bytes, Some(c)))),
-            Some(NodeType::TInt)    => Ok(into_benc!(Benc::benc_int (bytes))),
-            Some(NodeType::TList)   => Ok(into_benc!(Benc::benc_list(bytes))),
-            Some(NodeType::TDict)   => Ok(into_benc!(Benc::benc_dict(bytes))),
+            Some(NodeType::String) => Ok(into_benc!(Benc::benc_string(bytes, Some(c)))),
+            Some(NodeType::Int)    => Ok(into_benc!(Benc::benc_int (bytes))),
+            Some(NodeType::List)   => Ok(into_benc!(Benc::benc_list(bytes))),
+            Some(NodeType::Dict)   => Ok(into_benc!(Benc::benc_dict(bytes))),
             None                    => err,
         }
     }
@@ -312,23 +312,23 @@ trait IntoBenc {
 }
 
 impl IntoBenc for String {
-    fn into_benc(self) -> Benc { Benc::BString(self.into_bytes()) }
+    fn into_benc(self) -> Benc { Benc::String(self.into_bytes()) }
 }
 
 impl IntoBenc for Vec<u8> {
-    fn into_benc(self) -> Benc{ Benc::BString(self) }
+    fn into_benc(self) -> Benc{ Benc::String(self) }
 }
 
 impl IntoBenc for i64 {
-    fn into_benc(self) -> Benc { Benc::BInt(self) }
+    fn into_benc(self) -> Benc { Benc::Int(self) }
 }
 
 impl IntoBenc for Vec<Benc> {
-    fn into_benc(self) -> Benc { Benc::BList(self) }
+    fn into_benc(self) -> Benc { Benc::List(self) }
 }
 
 impl IntoBenc for TreeMap<Vec<u8>, Benc> {
-    fn into_benc(self) -> Benc { Benc::BDict(self) }
+    fn into_benc(self) -> Benc { Benc::Dict(self) }
 }
 
 #[cfg(test)]
@@ -413,28 +413,28 @@ mod tests {
         assert(Benc::benc_list,
             "5:helloi42ee",
             Ok(vec!(
-                B::BString(bytes!("hello")),
-                B::BInt(42),
+                B::String(bytes!("hello")),
+                B::Int(42),
             ))
         );
 
         assert(Benc::benc_list,
             "5:helloi42eli2ei3e2:hid4:listli1ei2ei3ee7:yahallo2::)eed2:hi5:hello3:inti15eee",
             Ok(vec!(
-                B::BString(bytes!("hello")),
-                B::BInt(42),
-                B::BList(vec!(
-                    B::BInt(2),
-                    B::BInt(3),
-                    B::BString(bytes!("hi")),
-                    B::BDict(hashmap!(
-                        bytes!("list")    => B::BList(vec!(B::BInt(1), B::BInt(2), B::BInt(3))),
-                        bytes!("yahallo") => B::BString(bytes!(":)")),
+                B::String(bytes!("hello")),
+                B::Int(42),
+                B::List(vec!(
+                    B::Int(2),
+                    B::Int(3),
+                    B::String(bytes!("hi")),
+                    B::Dict(hashmap!(
+                        bytes!("list")    => B::List(vec!(B::Int(1), B::Int(2), B::Int(3))),
+                        bytes!("yahallo") => B::String(bytes!(":)")),
                     )),
                 )),
-                B::BDict(hashmap!(
-                    bytes!("hi")  => B::BString(bytes!("hello")),
-                    bytes!("int") => B::BInt(15),
+                B::Dict(hashmap!(
+                    bytes!("hi")  => B::String(bytes!("hello")),
+                    bytes!("int") => B::Int(15),
                 )),
             ))
         );
@@ -447,7 +447,7 @@ mod tests {
         assert(Benc::benc_dict,
             "2:hi5:helloe",
             Ok(hashmap!(
-                bytes!("hi") => B::BString(bytes!("hello")),
+                bytes!("hi") => B::String(bytes!("hello")),
             ))
         );
 
@@ -455,20 +455,20 @@ mod tests {
             concat!("10:dictionaryd2:hi5:hello3:inti15ee7:integeri42e4:listli2ei3e2:hid4:listli",
                     "1ei2ei3ee7:yahallo2::)ee3:str5:helloe"),
             Ok(hashmap!(
-                bytes!("str")     => B::BString(bytes!("hello")),
-                bytes!("integer") => B::BInt(42),
-                bytes!("list")    => B::BList(vec!(
-                    B::BInt(2),
-                    B::BInt(3),
-                    B::BString(bytes!("hi")),
-                    B::BDict(hashmap!(
-                        bytes!("list")    => B::BList(vec!(B::BInt(1), B::BInt(2), B::BInt(3))),
-                        bytes!("yahallo") => B::BString(bytes!(":)")),
+                bytes!("str")     => B::String(bytes!("hello")),
+                bytes!("integer") => B::Int(42),
+                bytes!("list")    => B::List(vec!(
+                    B::Int(2),
+                    B::Int(3),
+                    B::String(bytes!("hi")),
+                    B::Dict(hashmap!(
+                        bytes!("list")    => B::List(vec!(B::Int(1), B::Int(2), B::Int(3))),
+                        bytes!("yahallo") => B::String(bytes!(":)")),
                     )),
                 )),
-                bytes!("dictionary") => B::BDict(hashmap!(
-                    bytes!("hi")  => B::BString(bytes!("hello")),
-                    bytes!("int") => B::BInt(15i64),
+                bytes!("dictionary") => B::Dict(hashmap!(
+                    bytes!("hi")  => B::String(bytes!("hello")),
+                    bytes!("int") => B::Int(15i64),
                 )),
             ))
         );

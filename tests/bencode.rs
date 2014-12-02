@@ -27,18 +27,18 @@ fn build_tree() {
         "31:http://direct.example.com/mock2e4:infod6:lengthi562949953421312e4:name15:あいえおう1",
         "2:piece lengthi536870912eee");
     
-    let expect = vec!(B::BDict(hashmap!(
-        bytes!("announce")      => B::BString(bytes!("http://tracker.example.com:8080/announce")),
-        bytes!("comment")       => B::BString(bytes!("\"Hello mock data\"")),
-        bytes!("creation date") => B::BInt(1234567890),
-        bytes!("httpseeds")     => B::BList(vec!(
-            B::BString(bytes!("http://direct.example.com/mock1")),
-            B::BString(bytes!("http://direct.example.com/mock2")),
+    let expect = vec!(B::Dict(hashmap!(
+        bytes!("announce")      => B::String(bytes!("http://tracker.example.com:8080/announce")),
+        bytes!("comment")       => B::String(bytes!("\"Hello mock data\"")),
+        bytes!("creation date") => B::Int(1234567890),
+        bytes!("httpseeds")     => B::List(vec!(
+            B::String(bytes!("http://direct.example.com/mock1")),
+            B::String(bytes!("http://direct.example.com/mock2")),
         )),
-        bytes!("info") => B::BDict(hashmap!(
-            bytes!("length")       => B::BInt(562949953421312),
-            bytes!("name")         => B::BString(bytes!("あいえおう")),
-            bytes!("piece length") => B::BInt(536870912),
+        bytes!("info") => B::Dict(hashmap!(
+            bytes!("length")       => B::Int(562949953421312),
+            bytes!("name")         => B::String(bytes!("あいえおう")),
+            bytes!("piece length") => B::Int(536870912),
         )),
     )));
 
