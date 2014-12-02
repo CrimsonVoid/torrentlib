@@ -3,6 +3,7 @@
 
 use std::io;
 use std::error;
+// TODO - Consider changing Map types
 use std::collections::TreeMap;
 use std::io::extensions::Bytes;
 
@@ -54,22 +55,22 @@ impl error::Error for BencError {
 
 impl error::FromError<u8> for BencError {
     fn from_error(err: u8) -> BencError {
-        Delim(err)
+        BencError::Delim(err)
     }
 }
 
 impl error::FromError<io::IoError> for BencError {
     fn from_error(err: io::IoError) -> BencError {
         match err.kind {
-            io::IoErrorKind::EndOfFile => EOF(err),
-            _                          => IoError(err),
+            io::IoErrorKind::EndOfFile => BencError::EOF(err),
+            _                          => BencError::IoError(err),
         }
     }
 }
 
 impl error::FromError<&'static str> for BencError {
     fn from_error(err: &'static str) -> BencError {
-        OtherErr(err)
+        BencError::OtherErr(err)
     }
 }
 
@@ -255,7 +256,7 @@ impl Benc {
         loop {
             // Key
             prev_key = match Benc::node(bytes, Some(b'e')) {
-                Ok(BString(n))           => if n > prev_key { n } else { return err; },
+                Ok(Benc::BString(n))     => if n > prev_key { n } else { return err; },
                 Ok(_)                    => return Err(BencError::OtherErr(
                                                 "Expected `BString` key for dictionary")),
                 Err(BencError::Delim(_)) => return Ok(dict),

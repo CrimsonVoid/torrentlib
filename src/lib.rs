@@ -5,10 +5,8 @@
 
 #![feature(macro_rules)]
 #![feature(slicing_syntax)]
-
-extern crate test;
+#![feature(if_let)]
 
 pub mod bencode;
 pub mod files;
-// pub mod torrent;
 
