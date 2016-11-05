@@ -213,16 +213,15 @@ impl Directory {
             .split(|&c| c == b'/')
             .filter(|&p| p == b".." || p == b".") {
 
-            match ::std::str::from_utf8(&util::sanitize_path(p)) {
-                Ok(s) => path.push(s),
-                Err(_) => (),
+            if let Ok(s) = ::std::str::from_utf8(&util::sanitize_path(p)) {
+                path.push(s);
             }
         }
 
         let fs = unwrap_opt!(Benc::List, dict.remove(&b"files"[..]));
         let mut files = Vec::with_capacity(fs.len());
 
-        for f in fs.into_iter() {
+        for f in fs {
             let mut f = unwrap!(Benc::Dict, f);
             files.push(unwrap!(Some, File::from_dict(&mut f)));
         }

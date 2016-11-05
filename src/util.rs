@@ -42,7 +42,7 @@ pub fn sanitize_path(path: &[u8]) -> Cow<[u8]> {
         Some(i) => {
             let mut p = path[..i].to_vec();
             p.extend(path[i..].iter()
-                .map(|c| *c)
+                .cloned()
                 .filter(|c| valid_byte(*c)));
 
             Cow::Owned(p)
