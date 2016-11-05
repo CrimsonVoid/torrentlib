@@ -7,6 +7,15 @@ authors = ["CrimsonVoid"]
 name = "libbittorrent"
 path = "src/lib.rs"
 
-[[test]]
-name = "tests"
+[features]
+bench = []
 
+[dependencies]
+time = "*"
+hyper = "*"
+
+[target.'cfg(windows)'.dependencies]
+shell32-sys="*"
+uuid-sys="*"
+ole32-sys="*"
+winapi="*"

@@ -3,10 +3,14 @@
 #![crate_name = "libbittorrent"]
 #![crate_type = "lib"]
 
-#![feature(macro_rules)]
-#![feature(slicing_syntax)]
-#![feature(if_let)]
+#![cfg_attr(feature="bench", feature(test))]
 
+#[macro_use]
+mod macros;
+
+mod util;
+
+pub mod error;
 pub mod bencode;
 pub mod files;
-
+pub mod torrent;
