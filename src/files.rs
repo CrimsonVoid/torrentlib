@@ -26,7 +26,9 @@ pub enum Status {
 }
 
 impl default::Default for Status {
-    fn default() -> Status { Status::NotCreated }
+    fn default() -> Status {
+        Status::NotCreated
+    }
 }
 
 #[derive(Debug)]
@@ -39,11 +41,15 @@ pub enum MvError<'a> {
 }
 
 impl<'a> convert::From<io::Error> for MvError<'a> {
-    fn from(e: io::Error) -> MvError<'a> { MvError::Io(e) }
+    fn from(e: io::Error) -> MvError<'a> {
+        MvError::Io(e)
+    }
 }
 
 impl<'a> convert::From<Vec<(&'a File, io::Error)>> for MvError<'a> {
-    fn from(e: Vec<(&'a File, io::Error)>) -> MvError<'a> { MvError::MoveErrors(e) }
+    fn from(e: Vec<(&'a File, io::Error)>) -> MvError<'a> {
+        MvError::MoveErrors(e)
+    }
 }
 
 /// Single File
@@ -74,9 +80,9 @@ impl File {
     pub fn new(name: String, path: path::PathBuf, length: u64) -> File {
         assert!(path.is_absolute());
 
-        File{
-            name:   name,
-            path:   path,
+        File {
+            name: name,
+            path: path,
             length: length,
             md5sum: None,
             status: Status::NotCreated,
@@ -89,7 +95,7 @@ impl File {
         let md5sum = match dict.remove(&b"md5sum"[..]) {
             // TODO - Check if it is a valid hash
             Some(Benc::String(s)) => String::from_utf8(s).ok(),
-            _                     => None,
+            _ => None,
         };
 
         // name_raw should be a Vec<String>, where each element is a subfolder
@@ -98,7 +104,7 @@ impl File {
         let mut path = util::download_dir().unwrap_or_else(env::temp_dir);
 
         for part in name_raw {
-            let part     = unwrap!(Benc::String, part);
+            let part = unwrap!(Benc::String, part);
             let part_str = unwrap!(Ok, ::std::str::from_utf8(&part));
 
             name.push_str(part_str);
@@ -110,10 +116,14 @@ impl File {
 
         let length = unwrap_opt!(Benc::Int, dict.remove(&b"length"[..]));
 
-        Some(File{
-            name:   name,
-            path:   path,
-            length: if length < 0 { return None } else { length as u64 },
+        Some(File {
+            name: name,
+            path: path,
+            length: if length < 0 {
+                return None;
+            } else {
+                length as u64
+            },
             md5sum: md5sum,
             status: Status::NotCreated,
         })
@@ -128,14 +138,15 @@ impl File {
     /// is set without attempting to move the file.
     pub fn set_location(&mut self, mut p: path::PathBuf) -> io::Result<()> {
         if !p.is_absolute() {
-            return Err(io::Error::new(
-                io::ErrorKind::InvalidInput,
-                "Not an absolute path",
-            ));
+            return Err(io::Error::new(io::ErrorKind::InvalidInput, "Not an absolute path"));
         }
 
         match self.status {
-            Status::NotCreated | Status::Missing(_) => { self.path = p; return Ok(()) },
+            Status::NotCreated |
+            Status::Missing(_) => {
+                self.path = p;
+                return Ok(());
+            }
             _ => (),
         }
 
@@ -143,17 +154,17 @@ impl File {
         // TODO - This will fail if we try to move to /
         match p.parent() {
             Some(p) => try!(fs::create_dir_all(p)),
-            None    => return Err(io::Error::new(
-                            io::ErrorKind::InvalidInput,
-                            "No parent folder",
-                       )),
+            None => return Err(io::Error::new(io::ErrorKind::InvalidInput, "No parent folder")),
         }
 
         mem::swap(&mut self.path, &mut p);
         // TODO - This will not work if the new name is on a different mount point.
         match fs::rename(&p, &self.path) {
-            e@Ok(_)  => e,
-            e@Err(_) => { self.status = Status::Missing(Some(p)); e }
+            e @ Ok(_) => e,
+            e @ Err(_) => {
+                self.status = Status::Missing(Some(p));
+                e
+            }
         }
     }
 }
@@ -188,8 +199,8 @@ impl Directory {
         assert!(path.is_absolute());
 
         Directory {
-            path:   path,
-            files:  Vec::with_capacity(cap),
+            path: path,
+            files: Vec::with_capacity(cap),
             status: Status::NotCreated,
         }
     }
@@ -203,7 +214,7 @@ impl Directory {
             .filter(|&p| p == b".." || p == b".") {
 
             match ::std::str::from_utf8(&util::sanitize_path(p)) {
-                Ok(s)  => path.push(s),
+                Ok(s) => path.push(s),
                 Err(_) => (),
             }
         }
@@ -217,9 +228,9 @@ impl Directory {
         }
 
         Some(Directory {
-            path:   path,
+            path: path,
             status: Status::NotCreated,
-            files:  files,
+            files: files,
         })
     }
 
@@ -237,7 +248,8 @@ impl Directory {
     /// From: /path/to/original/file.ext
     /// To:   /path/to/changed/file.ext
     pub fn rename<P>(&mut self, p: P) -> Result<(), MvError>
-        where P: convert::AsRef<ffi::OsStr> {
+        where P: convert::AsRef<ffi::OsStr>
+    {
 
         let dir = (&self.path).with_file_name(p);
         self.set_location(dir)
@@ -248,36 +260,34 @@ impl Directory {
     /// `MvError::MoveErrors` are independent from the error.
     pub fn set_location(&mut self, dir: path::PathBuf) -> Result<(), MvError> {
         if !dir.is_absolute() {
-            return Err(MvError::Io(io::Error::new(
-                io::ErrorKind::InvalidInput,
-                "Must be an absolute path",
-            )));
+            return Err(MvError::Io(io::Error::new(io::ErrorKind::InvalidInput,
+                                                  "Must be an absolute path")));
         }
 
         if dir == self.path {
-            return Ok(())
+            return Ok(());
         }
 
         try!(fs::create_dir_all(&dir));
         let mut errs = Vec::new();
 
         let path_len = match self.path.to_str() {
-            Some(p) => p.len()+1,
-            None    => return Err(MvError::Io(io::Error::new(
-                    io::ErrorKind::Other,
-                    "`self.path` is not a valid string",
-                ))),
+            Some(p) => p.len() + 1,
+            None => {
+                return Err(MvError::Io(io::Error::new(io::ErrorKind::Other,
+                                                      "`self.path` is not a valid string")))
+            }
         };
 
         // move files under self.path
         for f in &mut self.files {
             if !f.path.starts_with(&self.path) {
-                continue
+                continue;
             }
 
             let new_path = match f.path.to_str() {
                 Some(f) => dir.join(&f[path_len..]),
-                None    => continue,
+                None => continue,
             };
 
             if let Err(e) = f.set_location(new_path) {
@@ -291,7 +301,11 @@ impl Directory {
         let _ = fs::remove_dir(&self.path);
         self.path = dir;
 
-        if errs.is_empty() { Ok(()) } else { Err(MvError::MoveErrors(errs)) }
+        if errs.is_empty() {
+            Ok(())
+        } else {
+            Err(MvError::MoveErrors(errs))
+        }
     }
 }
 
@@ -303,9 +317,15 @@ mod test_file {
 
     use super::{File, Status};
 
-    fn name()     -> String { "こんにちは".to_owned() }
-    fn path_abs() -> path::PathBuf { env::temp_dir().join(name()) }
-    fn path_rel() -> path::PathBuf { path::PathBuf::from(name()) }
+    fn name() -> String {
+        "こんにちは".to_owned()
+    }
+    fn path_abs() -> path::PathBuf {
+        env::temp_dir().join(name())
+    }
+    fn path_rel() -> path::PathBuf {
+        path::PathBuf::from(name())
+    }
     static LEN: u64 = 256;
 
     #[test]
@@ -314,11 +334,14 @@ mod test_file {
         let path = path_abs();
         let f = File::new(name.clone(), path.clone(), LEN);
 
-        assert!(f.name   == name, "{} == {}", f.name, name);
-        assert!(f.path   == path, "{:?} == {:?}", f.path, path);
-        assert!(f.length == LEN,  "{} == {}", f.length, LEN);
+        assert!(f.name == name, "{} == {}", f.name, name);
+        assert!(f.path == path, "{:?} == {:?}", f.path, path);
+        assert!(f.length == LEN, "{} == {}", f.length, LEN);
         assert!(f.md5sum == None, "{:?} == None", f.md5sum);
-        assert!(f.status == Status::NotCreated, "{:?} == {:?}", f.status, Status::NotCreated);
+        assert!(f.status == Status::NotCreated,
+                "{:?} == {:?}",
+                f.status,
+                Status::NotCreated);
     }
 
     #[test]
@@ -357,8 +380,12 @@ mod test_directory {
 
     use super::{File, Directory, Status};
 
-    fn name() -> String { "こんにちは".to_owned() }
-    fn path_abs() -> path::PathBuf { env::temp_dir().join(name()) }
+    fn name() -> String {
+        "こんにちは".to_owned()
+    }
+    fn path_abs() -> path::PathBuf {
+        env::temp_dir().join(name())
+    }
     static LEN: u64 = 256;
     static CAP: usize = 8;
 
@@ -368,9 +395,15 @@ mod test_directory {
         let d = Directory::with_capacity(path.clone(), CAP);
 
         assert!(d.path == path, "{:?} == {:?}", d.path, path);
-        assert!(d.files.capacity() == CAP,  "{} == {}", d.files.capacity(), CAP);
-        assert!(d.files.len() == 0, "{} == 0",  d.files.len());
-        assert!(d.status == Status::NotCreated, "{:?} == {:?}", d.status, Status::NotCreated);
+        assert!(d.files.capacity() == CAP,
+                "{} == {}",
+                d.files.capacity(),
+                CAP);
+        assert!(d.files.len() == 0, "{} == 0", d.files.len());
+        assert!(d.status == Status::NotCreated,
+                "{:?} == {:?}",
+                d.status,
+                Status::NotCreated);
     }
 
     #[test]
@@ -400,16 +433,16 @@ mod test_directory {
     fn add_files() {
         let path = path_abs();
 
-        let mut dir   = Directory::new(path.clone());
+        let mut dir = Directory::new(path.clone());
         let mut files = Vec::with_capacity(CAP);
-        let mut copy  = Vec::with_capacity(CAP);
+        let mut copy = Vec::with_capacity(CAP);
 
-        for i in 0 .. CAP as u64 {
-            let name  = format!("file-{}.ext", i);
+        for i in 0..CAP as u64 {
+            let name = format!("file-{}.ext", i);
             let fpath = path.join(name.clone());
 
-            files.push(File::new(name.clone(), fpath.clone(), i*i));
-            copy.push(File::new(name, fpath, i*i));
+            files.push(File::new(name.clone(), fpath.clone(), i * i));
+            copy.push(File::new(name, fpath, i * i));
         }
 
         dir.add_files(files);
@@ -440,11 +473,11 @@ mod test_directory {
 
         let mut dir = Directory::new(path.clone());
 
-        for i in 0 .. CAP as u64 {
-            let name  = format!("file-{}.ext", i);
+        for i in 0..CAP as u64 {
+            let name = format!("file-{}.ext", i);
             let fpath = if i % 2 == 0 { &path } else { &other }.join(name.clone());
 
-            dir.add_file(File::new(name, fpath, i*i));
+            dir.add_file(File::new(name, fpath, i * i));
         }
 
         if let Err(e) = dir.set_location(moved.clone()) {
