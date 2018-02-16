@@ -2,8 +2,7 @@
 
 #![crate_name = "libbittorrent"]
 #![crate_type = "lib"]
-
-#![cfg_attr(feature="bench", feature(test))]
+#![cfg_attr(feature = "bench", feature(test))]
 
 #[macro_use]
 mod macros;

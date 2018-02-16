@@ -138,12 +138,14 @@ impl File {
     /// is set without attempting to move the file.
     pub fn set_location(&mut self, mut p: path::PathBuf) -> io::Result<()> {
         if !p.is_absolute() {
-            return Err(io::Error::new(io::ErrorKind::InvalidInput, "Not an absolute path"));
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidInput,
+                "Not an absolute path",
+            ));
         }
 
         match self.status {
-            Status::NotCreated |
-            Status::Missing(_) => {
+            Status::NotCreated | Status::Missing(_) => {
                 self.path = p;
                 return Ok(());
             }
@@ -154,7 +156,12 @@ impl File {
         // TODO - This will fail if we try to move to /
         match p.parent() {
             Some(p) => try!(fs::create_dir_all(p)),
-            None => return Err(io::Error::new(io::ErrorKind::InvalidInput, "No parent folder")),
+            None => {
+                return Err(io::Error::new(
+                    io::ErrorKind::InvalidInput,
+                    "No parent folder",
+                ))
+            }
         }
 
         mem::swap(&mut self.path, &mut p);
@@ -211,8 +218,8 @@ impl Directory {
         let mut path = util::download_dir().unwrap_or_else(env::temp_dir);
         for p in unwrap_opt!(Benc::String, dict.remove(&b"name"[..]))
             .split(|&c| c == b'/')
-            .filter(|&p| p == b".." || p == b".") {
-
+            .filter(|&p| p == b".." || p == b".")
+        {
             if let Ok(s) = ::std::str::from_utf8(&util::sanitize_path(p)) {
                 path.push(s);
             }
@@ -247,9 +254,9 @@ impl Directory {
     /// From: /path/to/original/file.ext
     /// To:   /path/to/changed/file.ext
     pub fn rename<P>(&mut self, p: P) -> Result<(), MvError>
-        where P: convert::AsRef<ffi::OsStr>
+    where
+        P: convert::AsRef<ffi::OsStr>,
     {
-
         let dir = (&self.path).with_file_name(p);
         self.set_location(dir)
     }
@@ -259,8 +266,10 @@ impl Directory {
     /// `MvError::MoveErrors` are independent from the error.
     pub fn set_location(&mut self, dir: path::PathBuf) -> Result<(), MvError> {
         if !dir.is_absolute() {
-            return Err(MvError::Io(io::Error::new(io::ErrorKind::InvalidInput,
-                                                  "Must be an absolute path")));
+            return Err(MvError::Io(io::Error::new(
+                io::ErrorKind::InvalidInput,
+                "Must be an absolute path",
+            )));
         }
 
         if dir == self.path {
@@ -273,8 +282,10 @@ impl Directory {
         let path_len = match self.path.to_str() {
             Some(p) => p.len() + 1,
             None => {
-                return Err(MvError::Io(io::Error::new(io::ErrorKind::Other,
-                                                      "`self.path` is not a valid string")))
+                return Err(MvError::Io(io::Error::new(
+                    io::ErrorKind::Other,
+                    "`self.path` is not a valid string",
+                )))
             }
         };
 
@@ -337,10 +348,12 @@ mod test_file {
         assert!(f.path == path, "{:?} == {:?}", f.path, path);
         assert!(f.length == LEN, "{} == {}", f.length, LEN);
         assert!(f.md5sum == None, "{:?} == None", f.md5sum);
-        assert!(f.status == Status::NotCreated,
-                "{:?} == {:?}",
-                f.status,
-                Status::NotCreated);
+        assert!(
+            f.status == Status::NotCreated,
+            "{:?} == {:?}",
+            f.status,
+            Status::NotCreated
+        );
     }
 
     #[test]
@@ -377,7 +390,7 @@ mod test_directory {
     use std::ffi;
     use std::path;
 
-    use super::{File, Directory, Status};
+    use super::{Directory, File, Status};
 
     fn name() -> String {
         "こんにちは".to_owned()
@@ -394,15 +407,19 @@ mod test_directory {
         let d = Directory::with_capacity(path.clone(), CAP);
 
         assert!(d.path == path, "{:?} == {:?}", d.path, path);
-        assert!(d.files.capacity() == CAP,
-                "{} == {}",
-                d.files.capacity(),
-                CAP);
+        assert!(
+            d.files.capacity() == CAP,
+            "{} == {}",
+            d.files.capacity(),
+            CAP
+        );
         assert!(d.files.len() == 0, "{} == 0", d.files.len());
-        assert!(d.status == Status::NotCreated,
-                "{:?} == {:?}",
-                d.status,
-                Status::NotCreated);
+        assert!(
+            d.status == Status::NotCreated,
+            "{:?} == {:?}",
+            d.status,
+            Status::NotCreated
+        );
     }
 
     #[test]

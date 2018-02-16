@@ -58,7 +58,6 @@ impl StdError for Error {
     }
 }
 
-
 impl convert::From<u8> for Error {
     fn from(err: u8) -> Error {
         Error::Delim(err)
