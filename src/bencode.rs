@@ -120,7 +120,7 @@ impl Benc {
         let neg = match bytes.next() {
             Some(Ok(b'-')) => -1,
             Some(Ok(c @ b'0'...b'9')) => {
-                num = (c - b'0') as i64;
+                num = i64::from(c - b'0'); //  (c - b'0') as i64;
                 1
             }
             Some(Ok(_)) | None => return err,
@@ -131,7 +131,7 @@ impl Benc {
             // 1..9 must follow -
             match bytes.next() {
                 Some(Ok(c @ b'1'...b'9')) => {
-                    num = (c - b'0') as i64;
+                    num = i64::from(c - b'0');
                 }
                 Some(Err(e)) => return Err(error::Error::from(e)),
                 _ => return err,
@@ -148,7 +148,7 @@ impl Benc {
         for c in bytes {
             match c {
                 Ok(c @ b'0'...b'9') => match num.checked_mul(10)
-                    .and_then(|n| n.checked_add((c - b'0') as i64))
+                    .and_then(|n| n.checked_add(i64::from(c - b'0')))
                 {
                     Some(n) => num = n,
                     None => return Err(error::Error::Other("Integer overflow")),

@@ -22,7 +22,7 @@ use std::ptr;
 use std::slice;
 
 // default download suffix
-const DOWNLOAD_SUFFIX: &'static str = "Downloads";
+const DOWNLOAD_SUFFIX: &str = "Downloads";
 
 #[cfg(target_os = "linux")]
 fn valid_byte(b: u8) -> bool {
