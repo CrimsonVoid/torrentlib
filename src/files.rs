@@ -81,9 +81,9 @@ impl File {
         assert!(path.is_absolute());
 
         File {
-            name: name,
-            path: path,
-            length: length,
+            name,
+            path,
+            length,
             md5sum: None,
             status: Status::NotCreated,
         }
@@ -117,14 +117,14 @@ impl File {
         let length = unwrap_opt!(Benc::Int, dict.remove(&b"length"[..]));
 
         Some(File {
-            name: name,
-            path: path,
+            name,
+            path,
             length: if length < 0 {
                 return None;
             } else {
                 length as u64
             },
-            md5sum: md5sum,
+            md5sum,
             status: Status::NotCreated,
         })
     }
@@ -206,7 +206,7 @@ impl Directory {
         assert!(path.is_absolute());
 
         Directory {
-            path: path,
+            path,
             files: Vec::with_capacity(cap),
             status: Status::NotCreated,
         }
@@ -234,9 +234,9 @@ impl Directory {
         }
 
         Some(Directory {
-            path: path,
+            path,
             status: Status::NotCreated,
-            files: files,
+            files,
         })
     }
 
