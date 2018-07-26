@@ -8,8 +8,8 @@ use std::io;
 use std::mem;
 use std::path;
 
-use bencode::Benc;
-use util;
+use crate::bencode::Benc;
+use crate::util;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Status {
@@ -253,7 +253,7 @@ impl Directory {
     /// Renames root folder
     /// From: /path/to/original/file.ext
     /// To:   /path/to/changed/file.ext
-    pub fn rename<P>(&mut self, p: P) -> Result<(), MvError>
+    pub fn rename<P>(&mut self, p: P) -> Result<(), MvError<'_>>
     where
         P: convert::AsRef<ffi::OsStr>,
     {
@@ -264,7 +264,7 @@ impl Directory {
     /// Move all files under `self.path` to `dir`. `dir` must be an absolute path. Errors while
     /// moving files are accumulated and returned as `MvError::MoveErrors`. Status of files in
     /// `MvError::MoveErrors` are independent from the error.
-    pub fn set_location(&mut self, dir: path::PathBuf) -> Result<(), MvError> {
+    pub fn set_location(&mut self, dir: path::PathBuf) -> Result<(), MvError<'_>> {
         if !dir.is_absolute() {
             return Err(MvError::Io(io::Error::new(
                 io::ErrorKind::InvalidInput,

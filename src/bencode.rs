@@ -1,10 +1,10 @@
 //! Decode and encode bencoded values as described by [BEP 003](
 //! http://www.bittorrent.org/beps/bep_0003.html).
-use std::io;
-use std::convert;
 use std::collections::HashMap;
+use std::convert;
+use std::io;
 
-use error;
+use crate::error;
 
 /// Indicates type of the Benc node
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -19,7 +19,7 @@ impl NodeType {
     /// Returns the bencoded type of `c`
     fn type_of(c: u8) -> Option<NodeType> {
         match c {
-            b'0'...b'9' => Some(NodeType::String),
+            b'0'..=b'9' => Some(NodeType::String),
             b'i' => Some(NodeType::Int),
             b'l' => Some(NodeType::List),
             b'd' => Some(NodeType::Dict),
@@ -65,14 +65,14 @@ impl Benc {
     {
         let err = Err(error::Error::Other("Invalid string bencoding"));
         let mut len = match c {
-            c @ b'0'...b'9' => (c - b'0') as usize,
+            c @ b'0'..=b'9' => (c - b'0') as usize,
             _ => return err,
         };
 
         // read numbers until ':' and return early if any other character is read
         for c in bytes.by_ref() {
             match c {
-                Ok(c @ b'0'...b'9') => match len.checked_mul(10)
+                Ok(c @ b'0'..=b'9') => match len.checked_mul(10)
                     .and_then(|n| n.checked_add((c - b'0') as usize))
                 {
                     Some(n) => len = n,
@@ -119,7 +119,7 @@ impl Benc {
 
         let neg = match bytes.next() {
             Some(Ok(b'-')) => -1,
-            Some(Ok(c @ b'0'...b'9')) => {
+            Some(Ok(c @ b'0'..=b'9')) => {
                 num = i64::from(c - b'0'); //  (c - b'0') as i64;
                 1
             }
@@ -130,7 +130,7 @@ impl Benc {
         if neg == -1 {
             // 1..9 must follow -
             match bytes.next() {
-                Some(Ok(c @ b'1'...b'9')) => {
+                Some(Ok(c @ b'1'..=b'9')) => {
                     num = i64::from(c - b'0');
                 }
                 Some(Err(e)) => return Err(error::Error::from(e)),
@@ -147,7 +147,7 @@ impl Benc {
 
         for c in bytes {
             match c {
-                Ok(c @ b'0'...b'9') => match num.checked_mul(10)
+                Ok(c @ b'0'..=b'9') => match num.checked_mul(10)
                     .and_then(|n| n.checked_add(i64::from(c - b'0')))
                 {
                     Some(n) => num = n,
@@ -292,7 +292,7 @@ mod test_nodetype {
         // let rng = rand::os::OsRng::new()
         //     .gen_iter()
         //     .filter(|r| match r {
-        //         b'0'...b'9' => false,
+        //         b'0'..=b'9' => false,
         //         b'i' | b'l' | b'd' => false,
         //         _ => true,
         //     })
@@ -310,7 +310,7 @@ mod test_benc {
     use std::fmt::Debug;
     use std::io::{self, Read};
 
-    use error;
+    use super::error;
     use super::Benc;
     use super::Benc as B;
 
@@ -325,7 +325,9 @@ mod test_benc {
     }
 
     macro_rules! bytes {
-        ($s:expr) => ( $s.to_owned().into_bytes() );
+        ($s:expr) => {
+            $s.to_owned().into_bytes()
+        };
     }
 
     #[test]
@@ -336,8 +338,7 @@ mod test_benc {
             "://direct.example.com/mock2e4:infod6:lengthi562949953421312e4:name15:あいえおう12:p",
             "iece lengthi536870912eee").as_bytes();
 
-        let expect = vec![
-            B::Dict(hashmap!(
+        let expect = vec![B::Dict(hashmap!(
             bytes!("announce")      => B::String(bytes!("http://tracker.example.com:8080/announce")),
             bytes!("comment")       => B::String(bytes!("\"Hello mock data\"")),
             bytes!("creation date") => B::Int(1234567890),
@@ -350,8 +351,7 @@ mod test_benc {
                 bytes!("name")         => B::String(bytes!("あいえおう")),
                 bytes!("piece length") => B::Int(536870912),
             )),
-        )),
-        ];
+        ))];
 
         let expect = Ok(expect);
         let result = Benc::new(&mut data.bytes());
@@ -498,7 +498,7 @@ mod test_benc {
         assert(
             Benc::dict,
             b"2:hi5:hello1:ai32ee".bytes(),
-            Err(error::Error::Other(("Mock data"))),
+            Err(error::Error::Other("Mock data")),
         );
     }
 
@@ -521,10 +521,6 @@ mod test_benc {
 #[cfg(feature = "bench")]
 mod bench {
     extern crate test;
-
-    use std::io::Read;
-
-    use super::Benc;
 
     #[bench]
     fn new(b: &mut test::Bencher) {
